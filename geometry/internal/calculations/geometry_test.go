@@ -3,35 +3,25 @@ package calculations
 import (
 	"geometry/cmd/app/internal/validation"
 	"math"
-	"strings"
 	"testing"
-)
 
-func almostEqual(a, b float64) bool {
-	return math.Abs(a-b) < 1e-9
-}
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
 
 func TestPointDistanceTo(t *testing.T) {
 	point := Point{X: 1, Y: 2}
-	if got := point.DistanceTo(Point{X: 4, Y: 6}); got != 5 {
-		t.Fatalf("DistanceTo() = %v, want 5", got)
-	}
+	assert.Equal(t, 5.0, point.DistanceTo(Point{X: 4, Y: 6}))
 }
 
 func TestPolygonAreaAndPerimeter(t *testing.T) {
 	polygon := Polygon{Points: []Point{{X: 0, Y: 0}, {X: 4, Y: 0}, {X: 4, Y: 3}}}
 
-	if got := polygon.Area(); got != 6 {
-		t.Fatalf("Area() = %v, want 6", got)
-	}
-	if got := polygon.Perimeter(); got != 12 {
-		t.Fatalf("Perimeter() = %v, want 12", got)
-	}
+	assert.Equal(t, 6.0, polygon.Area())
+	assert.Equal(t, 12.0, polygon.Perimeter())
 
 	reversed := Polygon{Points: []Point{{X: 4, Y: 3}, {X: 4, Y: 0}, {X: 0, Y: 0}}}
-	if got := reversed.Area(); got != 6 {
-		t.Fatalf("Area() for clockwise polygon = %v, want 6", got)
-	}
+	assert.Equal(t, 6.0, reversed.Area())
 }
 
 func TestPolygonContains(t *testing.T) {
@@ -56,9 +46,7 @@ func TestPolygonContains(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := polygon.Contains(tt.point); got != tt.want {
-				t.Fatalf("Contains(%v) = %v, want %v", tt.point, got, tt.want)
-			}
+			assert.Equal(t, tt.want, polygon.Contains(tt.point))
 		})
 	}
 }
@@ -72,36 +60,22 @@ func TestPolygonContainsConcavePolygon(t *testing.T) {
 		{X: 0, Y: 4},
 	}}
 
-	if !polygon.Contains(Point{X: 1, Y: 1}) {
-		t.Fatal("expected point in polygon to be contained")
-	}
-	if polygon.Contains(Point{X: 2, Y: 3}) {
-		t.Fatal("expected point in concave cutout to be outside")
-	}
+	assert.True(t, polygon.Contains(Point{X: 1, Y: 1}))
+	assert.False(t, polygon.Contains(Point{X: 2, Y: 3}))
 }
 
 func TestPolygonContainsInvalidPolygon(t *testing.T) {
 	polygon := Polygon{Points: []Point{{X: 0, Y: 0}, {X: 1, Y: 1}}}
-	if polygon.Contains(Point{}) {
-		t.Fatal("polygon with fewer than three vertices must not contain a point")
-	}
+	assert.False(t, polygon.Contains(Point{}))
 }
 
 func TestCircleCalculations(t *testing.T) {
 	circle := Circle{Center: Point{X: 1, Y: 1}, Radius: 2}
 
-	if got := circle.Area(); !almostEqual(got, 4*math.Pi) {
-		t.Fatalf("Area() = %v, want %v", got, 4*math.Pi)
-	}
-	if got := circle.Perimeter(); !almostEqual(got, 4*math.Pi) {
-		t.Fatalf("Perimeter() = %v, want %v", got, 4*math.Pi)
-	}
-	if !circle.Contains(Point{X: 3, Y: 1}) {
-		t.Fatal("point on circle boundary must be contained")
-	}
-	if circle.Contains(Point{X: 3.1, Y: 1}) {
-		t.Fatal("point outside circle must not be contained")
-	}
+	assert.InDelta(t, 4*math.Pi, circle.Area(), 1e-9)
+	assert.InDelta(t, 4*math.Pi, circle.Perimeter(), 1e-9)
+	assert.True(t, circle.Contains(Point{X: 3, Y: 1}))
+	assert.False(t, circle.Contains(Point{X: 3.1, Y: 1}))
 }
 
 func TestCreateFigures(t *testing.T) {
@@ -114,27 +88,22 @@ func TestCreateFigures(t *testing.T) {
 			name:  "distance",
 			flags: validation.Flags{Distance: true, Points: []string{"0", "1", "2", "3"}},
 			check: func(t *testing.T, figures Figures) {
-				if len(figures.Points) != 2 || figures.Points[1] != (Point{X: 2, Y: 3}) {
-					t.Fatalf("unexpected points: %+v", figures.Points)
-				}
+				require.Len(t, figures.Points, 2)
+				assert.Equal(t, Point{X: 2, Y: 3}, figures.Points[1])
 			},
 		},
 		{
 			name:  "polygon area",
 			flags: validation.Flags{Area: true, Polygon: true, Points: []string{"0", "0", "2", "0", "0", "2"}},
 			check: func(t *testing.T, figures Figures) {
-				if len(figures.Polygons.Points) != 3 {
-					t.Fatalf("unexpected polygon: %+v", figures.Polygons)
-				}
+				assert.Len(t, figures.Polygons.Points, 3)
 			},
 		},
 		{
 			name:  "circle perimeter from combined flag",
 			flags: validation.Flags{Perimeter: true, Circle: []string{"1", "2", "3"}},
 			check: func(t *testing.T, figures Figures) {
-				if figures.Circles != (Circle{Center: Point{X: 1, Y: 2}, Radius: 3}) {
-					t.Fatalf("unexpected circle: %+v", figures.Circles)
-				}
+				assert.Equal(t, Circle{Center: Point{X: 1, Y: 2}, Radius: 3}, figures.Circles)
 			},
 		},
 		{
@@ -143,9 +112,7 @@ func TestCreateFigures(t *testing.T) {
 				Area: true, Center: []string{"4", "5"}, Radius: "6",
 			},
 			check: func(t *testing.T, figures Figures) {
-				if figures.Circles != (Circle{Center: Point{X: 4, Y: 5}, Radius: 6}) {
-					t.Fatalf("unexpected circle: %+v", figures.Circles)
-				}
+				assert.Equal(t, Circle{Center: Point{X: 4, Y: 5}, Radius: 6}, figures.Circles)
 			},
 		},
 		{
@@ -155,9 +122,9 @@ func TestCreateFigures(t *testing.T) {
 				Points: []string{"1", "1", "0", "0", "2", "0", "0", "2"},
 			},
 			check: func(t *testing.T, figures Figures) {
-				if figures.Points[0] != (Point{X: 1, Y: 1}) || len(figures.Polygons.Points) != 3 {
-					t.Fatalf("unexpected figures: %+v", figures)
-				}
+				require.NotEmpty(t, figures.Points)
+				assert.Equal(t, Point{X: 1, Y: 1}, figures.Points[0])
+				assert.Len(t, figures.Polygons.Points, 3)
 			},
 		},
 		{
@@ -166,18 +133,18 @@ func TestCreateFigures(t *testing.T) {
 				Contains: true, Points: []string{"1", "1"}, Circle: []string{"0", "0", "2"},
 			},
 			check: func(t *testing.T, figures Figures) {
-				if figures.Points[0] != (Point{X: 1, Y: 1}) || figures.Circles.Radius != 2 {
-					t.Fatalf("unexpected figures: %+v", figures)
-				}
+				require.NotEmpty(t, figures.Points)
+				assert.Equal(t, Point{X: 1, Y: 1}, figures.Points[0])
+				assert.Equal(t, 2.0, figures.Circles.Radius)
 			},
 		},
 		{
 			name:  "no operation",
 			flags: validation.Flags{},
 			check: func(t *testing.T, figures Figures) {
-				if len(figures.Points) != 0 || len(figures.Polygons.Points) != 0 || figures.Circles.Radius != 0 {
-					t.Fatalf("expected empty figures, got %+v", figures)
-				}
+				assert.Empty(t, figures.Points)
+				assert.Empty(t, figures.Polygons.Points)
+				assert.Zero(t, figures.Circles.Radius)
 			},
 		},
 	}
@@ -209,9 +176,7 @@ func TestFiguresCalculate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.figures.Calculate(&tt.flags); got != tt.want {
-				t.Fatalf("Calculate() = %q, want %q", got, tt.want)
-			}
+			assert.Equal(t, tt.want, tt.figures.Calculate(&tt.flags))
 		})
 	}
 }
@@ -219,7 +184,5 @@ func TestFiguresCalculate(t *testing.T) {
 func TestCalculateResultContainsTwoDecimals(t *testing.T) {
 	figures := Figures{Circles: Circle{Radius: 1}}
 	flags := validation.Flags{Area: true}
-	if got := figures.Calculate(&flags); !strings.HasSuffix(got, "3.14") {
-		t.Fatalf("expected two decimal places, got %q", got)
-	}
+	assert.Equal(t, "The area of given circle is: 3.14", figures.Calculate(&flags))
 }

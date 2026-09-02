@@ -1,6 +1,10 @@
 package validation
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
 
 func TestValidationErrorMessages(t *testing.T) {
 	tests := []struct {
@@ -34,9 +38,7 @@ func TestValidationErrorMessages(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.err.Error(); got != tt.want {
-				t.Fatalf("Error() = %q, want %q", got, tt.want)
-			}
+			assert.EqualError(t, tt.err, tt.want)
 		})
 	}
 }

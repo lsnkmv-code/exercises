@@ -1,19 +1,18 @@
 package validation
 
 import (
-	"errors"
 	"os"
 	"testing"
 
 	flag "github.com/spf13/pflag"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func requireErrorType[T error](t *testing.T, err error) T {
 	t.Helper()
 	var target T
-	if !errors.As(err, &target) {
-		t.Fatalf("error = %T (%v), want %T", err, err, target)
-	}
+	require.ErrorAs(t, err, &target)
 	return target
 }
 
@@ -36,8 +35,8 @@ func TestValidateCommands(t *testing.T) {
 			err := validateCommands(&tt.flags)
 			if tt.wantErr {
 				requireErrorType[*CommandError](t, err)
-			} else if err != nil {
-				t.Fatalf("unexpected error: %v", err)
+			} else {
+				require.NoError(t, err)
 			}
 		})
 	}
@@ -45,25 +44,19 @@ func TestValidateCommands(t *testing.T) {
 
 func TestValidateDistance(t *testing.T) {
 	valid := Flags{Points: []string{"0", "1", "2.5", "-3"}}
-	if err := validateDistance(&valid); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, validateDistance(&valid))
 
 	wrongCount := Flags{Points: []string{"0", "1"}}
 	requireErrorType[*InvalidPointsCountError](t, validateDistance(&wrongCount))
 
 	invalidNumber := Flags{Points: []string{"0", "1", "bad", "3"}}
 	err := requireErrorType[*InvalidTypeError](t, validateDistance(&invalidNumber))
-	if err.Got != "bad" {
-		t.Fatalf("Got = %q, want bad", err.Got)
-	}
+	assert.Equal(t, "bad", err.Got)
 }
 
 func TestValidatePolygon(t *testing.T) {
 	valid := Flags{Points: []string{"0", "0", "2", "0", "0", "2"}}
-	if err := validatePolygon(&valid, 0); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, validatePolygon(&valid, 0))
 
 	for _, points := range [][]string{
 		{"0", "0", "1", "1"},
@@ -100,9 +93,7 @@ func TestValidateCircle(t *testing.T) {
 			case "type":
 				requireErrorType[*InvalidTypeError](t, err)
 			default:
-				if err != nil {
-					t.Fatalf("unexpected error: %v", err)
-				}
+				require.NoError(t, err)
 			}
 		})
 	}
@@ -126,11 +117,9 @@ func TestValidateAreaOrPerimeter(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := validateAreaOrPerimeter(&tt.flags)
 			if tt.wantErr {
-				if err == nil {
-					t.Fatal("expected an error")
-				}
-			} else if err != nil {
-				t.Fatalf("unexpected error: %v", err)
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
 			}
 		})
 	}
@@ -161,9 +150,7 @@ func TestValidateContains(t *testing.T) {
 			case "count":
 				requireErrorType[*InvalidPointsCountError](t, err)
 			default:
-				if err != nil {
-					t.Fatalf("unexpected error: %v", err)
-				}
+				require.NoError(t, err)
 			}
 		})
 	}
@@ -182,9 +169,7 @@ func TestValidateFlagsDispatchesCommands(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := validateFlags(&tt.flags); err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
+			require.NoError(t, validateFlags(&tt.flags))
 		})
 	}
 
@@ -198,9 +183,7 @@ func TestValidateFlagsDispatchesCommands(t *testing.T) {
 		{Contains: true},
 	}
 	for _, flags := range invalidCases {
-		if err := validateFlags(&flags); err == nil {
-			t.Fatalf("validateFlags(%+v) expected an error", flags)
-		}
+		require.Error(t, validateFlags(&flags))
 	}
 }
 
@@ -216,12 +199,9 @@ func TestParseFlags(t *testing.T) {
 	os.Args = []string{"geometry", "--distance", "--point", "0,0,3,4"}
 
 	flags, err := ParseFlags()
-	if err != nil {
-		t.Fatalf("ParseFlags() error = %v", err)
-	}
-	if !flags.Distance || len(flags.Points) != 4 {
-		t.Fatalf("unexpected flags: %+v", flags)
-	}
+	require.NoError(t, err)
+	assert.True(t, flags.Distance)
+	assert.Len(t, flags.Points, 4)
 }
 
 func TestParseFlagsValidationError(t *testing.T) {
